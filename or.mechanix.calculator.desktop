@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Mechanix Calculator
+Comment=Calculator application for Mechanix OS
+Exec=mechanix_calculator
+Icon=org.mechanix.calculator
+Terminal=false
+Categories=Utility;Calculator;
+StartupNotify=true
+StartupWMClass=org.mechanix.calculator
