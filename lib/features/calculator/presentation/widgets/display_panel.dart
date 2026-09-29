@@ -12,6 +12,7 @@ class DisplayPanel extends StatefulWidget {
   final String errorMessage;
   final List<HistoryItem> history;
   final bool isHistoryOpen;
+  final bool isCalculated;
   final ValueChanged<String>? onHistoryItemTap;
   final VoidCallback? onDismissHistory;
 
@@ -22,6 +23,7 @@ class DisplayPanel extends StatefulWidget {
     required this.errorMessage,
     this.history = const [],
     this.isHistoryOpen = false,
+    this.isCalculated = false,
     this.onHistoryItemTap,
     this.onDismissHistory,
   });
@@ -72,8 +74,7 @@ class _DisplayPanelState extends State<DisplayPanel> {
     } else if (widget.expression.isNotEmpty) {
       topExpression = '';
       bottomText = widget.expression;
-    } else if (widget.history.isNotEmpty &&
-        widget.history.first.result == widget.result) {
+    } else if (widget.isCalculated && widget.history.isNotEmpty) {
       topExpression = widget.history.first.expression;
       bottomText = widget.result.isNotEmpty ? widget.result : '0';
     } else {

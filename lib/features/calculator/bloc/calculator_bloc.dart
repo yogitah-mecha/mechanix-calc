@@ -16,7 +16,14 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
   );
 
   void _onClearPressed(ClearPressed event, Emitter<CalculatorState> emit) {
-    emit(state.copyWith(expression: '', result: '0', errorMessage: ''));
+    emit(
+      state.copyWith(
+        expression: '',
+        result: '0',
+        errorMessage: '',
+        isCalculated: false,
+      ),
+    );
   }
 
   void _onCalculateResult(
@@ -53,6 +60,7 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
             expression: expressionToEvaluate,
             result: '',
             errorMessage: invalidOperationsErrorMessage,
+            isCalculated: false,
           ),
         );
         return;
@@ -88,6 +96,7 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
           result: result,
           history: updatedHistory,
           errorMessage: '',
+          isCalculated: true,
         ),
       );
     } catch (e) {
@@ -97,6 +106,7 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
           expression: expressionToEvaluate,
           result: '',
           errorMessage: invalidOperationsErrorMessage,
+          isCalculated: false,
         ),
       );
     }

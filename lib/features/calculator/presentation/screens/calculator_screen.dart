@@ -186,7 +186,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                     buildWhen: (prev, curr) =>
                         prev.result != curr.result ||
                         prev.history != curr.history ||
-                        prev.errorMessage != curr.errorMessage,
+                        prev.errorMessage != curr.errorMessage ||
+                        prev.isCalculated != curr.isCalculated,
                     builder: (context, blocState) {
                       return ValueListenableBuilder<bool>(
                         valueListenable: _isHistoryOpenNotifier,
@@ -211,6 +212,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                                     errorMessage: errorMessage,
                                     history: blocState.history,
                                     isHistoryOpen: isOpen,
+                                    isCalculated: blocState.isCalculated,
                                     onDismissHistory: () {
                                       _isHistoryOpenNotifier.value = false;
                                     },

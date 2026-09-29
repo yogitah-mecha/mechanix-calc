@@ -187,6 +187,28 @@ void main() {
 
         calculatorBloc.add(const CalculateResult('1000+2000'));
       });
+
+      test('calculates 2-2=0 with isCalculated true and ClearPressed resets isCalculated to false', () {
+        final expectedStates = [
+          isA<CalculatorState>()
+              .having((s) => s.expression, 'expression', '')
+              .having((s) => s.result, 'result', '0')
+              .having((s) => s.isCalculated, 'isCalculated', true)
+              .having((s) => s.history.length, 'history length', 1)
+              .having((s) => s.history.first.expression, 'history expr', '2-2')
+              .having((s) => s.history.first.result, 'history result', '0'),
+          isA<CalculatorState>()
+              .having((s) => s.expression, 'expression', '')
+              .having((s) => s.result, 'result', '0')
+              .having((s) => s.isCalculated, 'isCalculated', false)
+              .having((s) => s.history.length, 'history length', 1),
+        ];
+
+        expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
+
+        calculatorBloc.add(const CalculateResult('2-2'));
+        calculatorBloc.add(const ClearPressed());
+      });
     });
   });
 }

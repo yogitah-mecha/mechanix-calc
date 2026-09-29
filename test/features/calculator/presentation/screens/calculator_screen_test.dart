@@ -340,6 +340,38 @@ void main() {
           );
         },
       );
+
+      testWidgets(
+        'AC button clears 2-2=0 calculation and removes top expression from display',
+        (tester) async {
+          await tester.pumpWidget(createScreen());
+
+          // 2 - 2 = 0
+          await tester.tap(find.widgetWithText(MechanixButton, '2'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(MechanixButton, '-'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(MechanixButton, '2'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(MechanixButton, '='));
+          await tester.pumpAndSettle();
+
+          expect(bloc.state.result, '0');
+
+          // Tap AC
+          await tester.tap(find.widgetWithText(MechanixButton, 'AC'));
+          await tester.pumpAndSettle();
+
+          expect(find.text('2-2'), findsNothing);
+          expect(
+            find.descendant(
+              of: find.byType(DisplayPanel),
+              matching: find.text('0'),
+            ),
+            findsOneWidget,
+          );
+        },
+      );
     });
   });
 }

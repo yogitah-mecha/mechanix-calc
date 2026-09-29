@@ -21,12 +21,14 @@ class CalculatorState extends Equatable {
   final String result;
   final String errorMessage;
   final List<HistoryItem> history;
+  final bool isCalculated;
 
   const CalculatorState({
     this.expression = '',
     this.result = '0',
     this.errorMessage = '',
     this.history = const [],
+    this.isCalculated = false,
   });
 
   CalculatorState copyWith({
@@ -34,15 +36,23 @@ class CalculatorState extends Equatable {
     String? result,
     String? errorMessage,
     List<HistoryItem>? history,
+    bool? isCalculated,
   }) {
     return CalculatorState(
       expression: expression ?? this.expression,
       result: result ?? this.result,
       errorMessage: errorMessage ?? this.errorMessage,
       history: history ?? this.history,
+      isCalculated: isCalculated ?? this.isCalculated,
     );
   }
 
   @override
-  List<Object> get props => [expression, result, errorMessage, history];
+  List<Object> get props => [
+    expression,
+    result,
+    errorMessage,
+    history,
+    isCalculated,
+  ];
 }

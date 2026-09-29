@@ -37,6 +37,7 @@ void main() {
               expression: '',
               result: '0',
               errorMessage: '',
+              isCalculated: false,
               history: [HistoryItem(expression: '3+5', result: '8')],
             ),
           ),
@@ -45,6 +46,28 @@ void main() {
 
       expect(find.text('0'), findsOneWidget);
       expect(find.text('3+5'), findsNothing);
+      expect(find.byType(HistoryOverlay), findsNothing);
+    });
+
+    testWidgets('shows only 0 when cleared (AC) even if history item result was 0', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: DisplayPanel(
+              expression: '',
+              result: '0',
+              errorMessage: '',
+              isCalculated: false,
+              history: [HistoryItem(expression: '2-2', result: '0')],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('0'), findsOneWidget);
+      expect(find.text('2-2'), findsNothing);
       expect(find.byType(HistoryOverlay), findsNothing);
     });
 
@@ -58,6 +81,7 @@ void main() {
                 expression: '',
                 result: '12,950',
                 errorMessage: '',
+                isCalculated: true,
                 history: [
                   HistoryItem(expression: '12.95 × 10', result: '12,950'),
                 ],
@@ -68,6 +92,31 @@ void main() {
 
         expect(find.text('12.95 × 10'), findsOneWidget);
         expect(find.text('12,950'), findsOneWidget);
+        expect(find.byType(HistoryOverlay), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'shows previous expression and 0 result for completed calculation with result 0 (e.g. 2-2=0)',
+      (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: DisplayPanel(
+                expression: '',
+                result: '0',
+                errorMessage: '',
+                isCalculated: true,
+                history: [
+                  HistoryItem(expression: '2-2', result: '0'),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('2-2'), findsOneWidget);
+        expect(find.text('0'), findsOneWidget);
         expect(find.byType(HistoryOverlay), findsNothing);
       },
     );
