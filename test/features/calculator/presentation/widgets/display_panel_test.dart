@@ -4,6 +4,7 @@ import 'package:mechanix_calculator/core/utils/constant.dart';
 import 'package:mechanix_calculator/features/calculator/bloc/calculator_state.dart';
 import 'package:mechanix_calculator/features/calculator/presentation/widgets/display_panel.dart';
 import 'package:mechanix_calculator/l10n/app_localizations.dart';
+import 'package:widgets/widgets.dart';
 
 void main() {
   group('DisplayPanel', () {
@@ -49,27 +50,28 @@ void main() {
       expect(find.byType(HistoryOverlay), findsNothing);
     });
 
-    testWidgets('shows only 0 when cleared (AC) even if history item result was 0', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: DisplayPanel(
-              expression: '',
-              result: '0',
-              errorMessage: '',
-              isCalculated: false,
-              history: [HistoryItem(expression: '2-2', result: '0')],
+    testWidgets(
+      'shows only 0 when cleared (AC) even if history item result was 0',
+      (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: DisplayPanel(
+                expression: '',
+                result: '0',
+                errorMessage: '',
+                isCalculated: false,
+                history: [HistoryItem(expression: '2-2', result: '0')],
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('0'), findsOneWidget);
-      expect(find.text('2-2'), findsNothing);
-      expect(find.byType(HistoryOverlay), findsNothing);
-    });
+        expect(find.text('0'), findsOneWidget);
+        expect(find.text('2-2'), findsNothing);
+        expect(find.byType(HistoryOverlay), findsNothing);
+      },
+    );
 
     testWidgets(
       'shows previous expression and result for completed calculation',
@@ -107,9 +109,7 @@ void main() {
                 result: '0',
                 errorMessage: '',
                 isCalculated: true,
-                history: [
-                  HistoryItem(expression: '2-2', result: '0'),
-                ],
+                history: [HistoryItem(expression: '2-2', result: '0')],
               ),
             ),
           ),
@@ -345,18 +345,52 @@ void main() {
     );
 
     testWidgets(
-      'renders vertical Scrollbar and SingleChildScrollView for long digits',
+      'uses displayMedium style for normal short expression and headlineMedium style for long multiline expression',
       (tester) async {
-        final longDigits = '1234567890' * 20;
+        const shortText = '12,950';
+        final longText = '12,9500000000000000000000000000000000000000';
 
+        // 1. Short text uses displayMedium
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 540,
+                child: DisplayPanel(
+                  expression: shortText,
+                  result: '0',
+                  errorMessage: '',
+                  history: [],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final shortTextFinder = find.text(shortText);
+        expect(shortTextFinder, findsOneWidget);
+        final shortWidget = tester.widget<Text>(shortTextFinder);
+        final defaultDisplayMedium = ThemeData.light().textTheme.displayMedium!
+            .copyWith(
+              fontFamily: MechanixFontFamily.geistMono,
+              fontSize: 52,
+              fontWeight: FontWeight.w400,
+            );
+
+        expect(
+          shortWidget.style?.fontSize,
+          equals(defaultDisplayMedium.fontSize),
+        );
+
+        // 2. Long text uses headlineMedium
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: SizedBox(
-                height: 200,
-                width: 300,
+                width: 350,
                 child: DisplayPanel(
-                  expression: longDigits,
+                  expression: longText,
                   result: '0',
                   errorMessage: '',
                   history: const [],
@@ -365,15 +399,23 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
-        expect(find.byType(Scrollbar), findsOneWidget);
-        expect(find.byType(SingleChildScrollView), findsOneWidget);
-        expect(find.text(longDigits), findsOneWidget);
-
-        final scrollable = find.byType(SingleChildScrollView);
-        final singleChild = tester.widget<SingleChildScrollView>(scrollable);
-        expect(singleChild.scrollDirection, Axis.vertical);
-        expect(singleChild.reverse, isTrue);
+        final longTextFinder = find.text(longText);
+        expect(longTextFinder, findsOneWidget);
+        final longWidget = tester.widget<Text>(longTextFinder);
+        final defaultHeadlineMedium = ThemeData.light()
+            .textTheme
+            .headlineMedium!
+            .copyWith(
+              fontFamily: MechanixFontFamily.geistMono,
+              fontSize: 32,
+              fontWeight: FontWeight.w400,
+            );
+        expect(
+          longWidget.style?.fontSize,
+          equals(defaultHeadlineMedium.fontSize),
+        );
       },
     );
   });

@@ -14,6 +14,7 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
   static final _numberFormattingPattern = RegExp(
     r'(\d{1,3})(?=(\d{3})+(?!\d))',
   );
+  static final _leadingDecimalPattern = RegExp(r'(?<=[+\-*/])\.');
 
   void _onClearPressed(ClearPressed event, Emitter<CalculatorState> emit) {
     emit(
@@ -41,6 +42,13 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
           .replaceAll(',', '')
           .replaceAll('×', '*')
           .replaceAll('÷', '/');
+
+      // Convert leading decimal values to valid numeric expressions.
+      // Example: 4*.2 -> 4*0.2
+      finalExpression = finalExpression.replaceAllMapped(
+        _leadingDecimalPattern,
+        (_) => '0.',
+      );
 
       // Convert percentage values to division by 100 for evaluation.
       finalExpression = finalExpression.replaceAllMapped(
@@ -112,4 +120,3 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
     }
   }
 }
-

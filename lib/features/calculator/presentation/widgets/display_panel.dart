@@ -63,6 +63,13 @@ class _DisplayPanelState extends State<DisplayPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isHistoryOpen) {
+      return HistoryOverlay(
+        history: widget.history,
+        onHistoryItemTap: widget.onHistoryItemTap,
+      );
+    }
+
     final l10n = AppLocalizations.of(context);
     final String topExpression;
     final String bottomText;
@@ -84,61 +91,73 @@ class _DisplayPanelState extends State<DisplayPanel> {
 
     final displayContent = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (topExpression.isNotEmpty && !widget.isHistoryOpen) ...[
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                topExpression,
-                textAlign: TextAlign.end,
-                softWrap: true,
-                overflow: TextOverflow.visible,
-                style: Theme.of(context).textTheme.titleSmall!.copyWith(
-                  fontFamily: MechanixFontFamily.geistMono,
-                  fontSize: 18,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final displayMediumStyle = Theme.of(context).textTheme.displayMedium!
+              .copyWith(
+                fontFamily: MechanixFontFamily.geistMono,
+                fontSize: 52,
+                fontWeight: FontWeight.w400,
+              );
+
+          final headlineMediumStyle = Theme.of(context)
+              .textTheme
+              .headlineMedium!
+              .copyWith(
+                fontFamily: MechanixFontFamily.geistMono,
+                fontSize: 32,
+                fontWeight: FontWeight.w400,
+              );
+
+          final textPainter = TextPainter(
+            text: TextSpan(text: bottomText, style: displayMediumStyle),
+            textDirection: Directionality.of(context),
+            maxLines: 1,
+          )..layout();
+
+          final isLargeMultilineExpression =
+              textPainter.width > constraints.maxWidth;
+
+          final bottomTextStyle = isLargeMultilineExpression
+              ? headlineMediumStyle
+              : displayMediumStyle;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (topExpression.isNotEmpty) ...[
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    topExpression,
+                    textAlign: TextAlign.end,
+                    softWrap: true,
+                    overflow: TextOverflow.visible,
+                    style: Theme.of(context).textTheme.titleSmall!.copyWith(
+                      fontFamily: MechanixFontFamily.geistMono,
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  bottomText,
+                  textAlign: TextAlign.end,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  style: bottomTextStyle,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              bottomText,
-              textAlign: TextAlign.end,
-              softWrap: true,
-              overflow: TextOverflow.visible,
-              style: Theme.of(
-                context,
-              ).textTheme.displayMedium!.copyWith(fontFamily: 'GeistMono'),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
 
-    if (widget.isHistoryOpen) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: HistoryOverlay(
-              history: widget.history,
-              onHistoryItemTap: widget.onHistoryItemTap,
-            ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: widget.onDismissHistory,
-            child: displayContent,
-          ),
-        ],
-      );
-    }
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: widget.onDismissHistory,
@@ -157,6 +176,8 @@ class _DisplayPanelState extends State<DisplayPanel> {
         ),
       ),
     );
+    //   },
+    // );
   }
 }
 
