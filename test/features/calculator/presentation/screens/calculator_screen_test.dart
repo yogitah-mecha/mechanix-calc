@@ -156,6 +156,79 @@ void main() {
       },
     );
 
+    testWidgets('toggle sign toggles previous calculation result', (
+      tester,
+    ) async {
+      await tester.pumpWidget(createScreen());
+
+      await performCalculation(
+        tester,
+        firstNumber: '5',
+        operator: '+',
+        secondNumber: '3',
+      );
+
+      expect(bloc.state.result, '8');
+
+      await tester.tap(find.widgetWithText(MechanixButton, '+/-'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('(-8)'), findsOneWidget);
+    });
+
+    testWidgets('toggle sign clears fatal error', (tester) async {
+      await tester.pumpWidget(createScreen());
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+      await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.errorMessage, invalidOperationsErrorMessage);
+
+      await tester.tap(find.widgetWithText(MechanixButton, '+/-'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(invalidOperationsErrorMessage), findsNothing);
+    });
+
+    testWidgets('operator clears fatal error and starts new expression', (
+      tester,
+    ) async {
+      await tester.pumpWidget(createScreen());
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+      await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.errorMessage, invalidOperationsErrorMessage);
+
+      await tester.tap(find.widgetWithText(MechanixButton, '+'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(invalidOperationsErrorMessage), findsNothing);
+    });
+
+    testWidgets('minus after fatal error starts negative expression', (
+      tester,
+    ) async {
+      await tester.pumpWidget(createScreen());
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+      await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(MechanixButton, '-'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('-').first, findsOneWidget);
+    });
+
     group('Keyboard shortcuts and events', () {
       testWidgets('handles KeyDown for digits and operators', (tester) async {
         await tester.pumpWidget(createScreen());

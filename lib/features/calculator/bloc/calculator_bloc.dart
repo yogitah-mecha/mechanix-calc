@@ -56,6 +56,13 @@ class CalculatorBloc extends Bloc<CalculatorEvent, CalculatorState> {
         (match) => '(${match[1]}/100)',
       );
 
+      // Wrap negative numbers that follow an operator in parentheses for evaluation.
+      // E.g., -2*-2 -> -2*(-2), 5+-3 -> 5+(-3), 10/-2 -> 10/(-2), 5--3 -> 5-(-3)
+      finalExpression = finalExpression.replaceAllMapped(
+        RegExp(r'(?<=[+\-*/])-(?:\d+(?:\.\d+)?|\.\d+)'),
+        (match) => '(${match.group(0)})',
+      );
+
       GrammarParser p = GrammarParser();
       Expression exp = p.parse(finalExpression);
       ContextModel cm = ContextModel();

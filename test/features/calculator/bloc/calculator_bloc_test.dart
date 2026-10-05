@@ -188,26 +188,56 @@ void main() {
         calculatorBloc.add(const CalculateResult('1000+2000'));
       });
 
-      test('calculates 2-2=0 with isCalculated true and ClearPressed resets isCalculated to false', () {
+      test('calculates expressions with negative operands without brackets correctly', () {
         final expectedStates = [
+          // 1. -2×-2 = 4
           isA<CalculatorState>()
-              .having((s) => s.expression, 'expression', '')
-              .having((s) => s.result, 'result', '0')
-              .having((s) => s.isCalculated, 'isCalculated', true)
-              .having((s) => s.history.length, 'history length', 1)
-              .having((s) => s.history.first.expression, 'history expr', '2-2')
-              .having((s) => s.history.first.result, 'history result', '0'),
+              .having((s) => s.result, 'result', '4')
+              .having((s) => s.history.first.expression, 'expr', '-2×-2')
+              .having((s) => s.history.first.result, 'result', '4'),
+          // 2. 5+-3 = 2
           isA<CalculatorState>()
-              .having((s) => s.expression, 'expression', '')
-              .having((s) => s.result, 'result', '0')
-              .having((s) => s.isCalculated, 'isCalculated', false)
-              .having((s) => s.history.length, 'history length', 1),
+              .having((s) => s.result, 'result', '2')
+              .having((s) => s.history.first.expression, 'expr', '5+-3')
+              .having((s) => s.history.first.result, 'result', '2'),
+          // 3. 10--20 = 30
+          isA<CalculatorState>()
+              .having((s) => s.result, 'result', '30')
+              .having((s) => s.history.first.expression, 'expr', '10--20')
+              .having((s) => s.history.first.result, 'result', '30'),
         ];
 
         expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
 
-        calculatorBloc.add(const CalculateResult('2-2'));
-        calculatorBloc.add(const ClearPressed());
+        calculatorBloc.add(const CalculateResult('-2×-2'));
+        calculatorBloc.add(const CalculateResult('5+-3'));
+        calculatorBloc.add(const CalculateResult('10--20'));
+      });
+
+      test('calculates expressions with parenthesized negative operands correctly', () {
+        final expectedStates = [
+          // 1. (-5)×(-5) = 25
+          isA<CalculatorState>()
+              .having((s) => s.result, 'result', '25')
+              .having((s) => s.history.first.expression, 'expr', '(-5)×(-5)')
+              .having((s) => s.history.first.result, 'result', '25'),
+          // 2. (-2)×(-2) = 4
+          isA<CalculatorState>()
+              .having((s) => s.result, 'result', '4')
+              .having((s) => s.history.first.expression, 'expr', '(-2)×(-2)')
+              .having((s) => s.history.first.result, 'result', '4'),
+          // 3. 5+(-3) = 2
+          isA<CalculatorState>()
+              .having((s) => s.result, 'result', '2')
+              .having((s) => s.history.first.expression, 'expr', '5+(-3)')
+              .having((s) => s.history.first.result, 'result', '2'),
+        ];
+
+        expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
+
+        calculatorBloc.add(const CalculateResult('(-5)×(-5)'));
+        calculatorBloc.add(const CalculateResult('(-2)×(-2)'));
+        calculatorBloc.add(const CalculateResult('5+(-3)'));
       });
     });
   });

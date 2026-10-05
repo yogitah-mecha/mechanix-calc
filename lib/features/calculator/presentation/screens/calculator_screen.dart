@@ -88,7 +88,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       _onClearPressed();
       return;
     }
-    final res = ExpressionBuilder.handleToggleSign(_expressionNotifier.value);
+    String currentExpr = _expressionNotifier.value;
+    if (currentExpr.isEmpty) {
+      final previousResult = context.read<CalculatorBloc>().state.result;
+      if (previousResult.isNotEmpty && previousResult != '0') {
+        currentExpr = previousResult.replaceAll(',', '');
+      }
+    }
+    final res = ExpressionBuilder.handleToggleSign(currentExpr);
     _expressionNotifier.value = res.expression;
     _errorMessageNotifier.value = res.errorMessage;
   }
