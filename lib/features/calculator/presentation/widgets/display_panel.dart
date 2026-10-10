@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
 import 'package:mechanix_calculator/l10n/app_localizations.dart';
 import 'package:widgets/widgets.dart';
+
 import '../../bloc/calculator_state.dart';
 
 class DisplayPanel extends StatefulWidget {
@@ -91,72 +92,66 @@ class _DisplayPanelState extends State<DisplayPanel> {
       bottomText = widget.result.isNotEmpty ? widget.result : '0';
     }
 
+    final displayMediumStyle = Theme.of(context).textTheme.displayMedium!
+        .copyWith(
+          fontFamily: MechanixFontFamily.geistMono,
+          fontSize: 52,
+          fontWeight: FontWeight.w400,
+        );
+
     final displayContent = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final displayMediumStyle = Theme.of(context).textTheme.displayMedium!
-              .copyWith(
-                fontFamily: MechanixFontFamily.geistMono,
-                fontSize: 52,
-                fontWeight: FontWeight.w400,
-              );
-
-          final headlineMediumStyle = Theme.of(context)
-              .textTheme
-              .headlineMedium!
-              .copyWith(
-                fontFamily: MechanixFontFamily.geistMono,
-                fontSize: 32,
-                fontWeight: FontWeight.w400,
-              );
-
-          final textPainter = TextPainter(
-            text: TextSpan(text: bottomText, style: displayMediumStyle),
-            textDirection: Directionality.of(context),
-            maxLines: 1,
-          )..layout();
-
-          final isLargeMultilineExpression =
-              textPainter.width > constraints.maxWidth;
-
-          final bottomTextStyle = isLargeMultilineExpression
-              ? headlineMediumStyle
-              : displayMediumStyle;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (topExpression.isNotEmpty) ...[
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    topExpression,
-                    textAlign: TextAlign.end,
-                    softWrap: true,
-                    overflow: TextOverflow.visible,
-                    style: Theme.of(context).textTheme.titleSmall!.copyWith(
-                      fontFamily: MechanixFontFamily.geistMono,
-                      fontSize: 18,
-                      color: Theme.of(context).colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  bottomText,
-                  textAlign: TextAlign.end,
-                  softWrap: true,
-                  overflow: TextOverflow.visible,
-                  style: bottomTextStyle,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (topExpression.isNotEmpty) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                topExpression,
+                textAlign: TextAlign.end,
+                softWrap: true,
+                overflow: TextOverflow.visible,
+                style: Theme.of(context).textTheme.titleSmall!.copyWith(
+                  fontFamily: MechanixFontFamily.geistMono,
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
                 ),
               ),
-            ],
-          );
-        },
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          SizedBox(
+            height: 100,
+            width: 540,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: 540,
+                child: Text(
+                  bottomText,
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  style: displayMediumStyle,
+                ),
+              ),
+            ),
+          ),
+
+          /// Use a small set of font sizes based on expression length
+          // Align(
+          //   alignment: Alignment.centerRight,
+          //   child: Text(
+          //     bottomText,
+          //     style: displayMediumStyle.copyWith(
+          //       fontSize: getDisplayFontSize(bottomText),
+          //     ),
+          //   ),
+          // ),
+        ],
       ),
     );
 
@@ -201,6 +196,7 @@ class _HistoryOverlayState extends State<HistoryOverlay> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
@@ -209,6 +205,7 @@ class _HistoryOverlayState extends State<HistoryOverlay> {
   @override
   void didUpdateWidget(covariant HistoryOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (widget.history != oldWidget.history) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
@@ -218,6 +215,7 @@ class _HistoryOverlayState extends State<HistoryOverlay> {
 
   void _scrollToBottom() {
     if (!mounted || !_scrollController.hasClients) return;
+
     _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
   }
 
@@ -246,6 +244,7 @@ class _HistoryOverlayState extends State<HistoryOverlay> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
+
               return _HistoryTile(item: item, onTap: widget.onHistoryItemTap);
             },
           ),
@@ -314,6 +313,7 @@ class _HistoryTile extends StatelessWidget {
 
 String _getErrorMessage(AppLocalizations? l10n, String key) {
   if (l10n == null) return key;
+
   switch (key) {
     case maxDigitsErrorMessage:
       return l10n.maxDigitsErrorMessage;
@@ -326,4 +326,11 @@ String _getErrorMessage(AppLocalizations? l10n, String key) {
     default:
       return l10n.invalidOperationsErrorMessage;
   }
+}
+
+double getDisplayFontSize(String text) {
+  if (text.length > 60) return 24;
+  if (text.length > 40) return 32;
+  if (text.length > 16) return 40;
+  return 52;
 }
