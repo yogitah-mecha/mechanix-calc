@@ -151,13 +151,22 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     // Special case: Shift + '=' => '+'
     if (key == LogicalKeyboardKey.equal &&
         HardwareKeyboard.instance.isShiftPressed) {
+      _closeHistory();
       _onOperatorPressed('+');
       return;
     }
 
     final action = logicalKeyboardKeyMap[key];
     if (action != null) {
+      // Same as tapping the button grid: typing closes the history panel.
+      _closeHistory();
       _handleButtonAction(action);
+    }
+  }
+
+  void _closeHistory() {
+    if (_isHistoryOpenNotifier.value) {
+      _isHistoryOpenNotifier.value = false;
     }
   }
 

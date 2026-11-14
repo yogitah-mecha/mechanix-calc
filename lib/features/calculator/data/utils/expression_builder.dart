@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
+import 'package:mechanix_calculator/features/calculator/data/utils/result_formatter.dart';
 
 class ExpressionResult extends Equatable {
   final String expression;
@@ -14,6 +15,22 @@ class ExpressionResult extends Equatable {
 class ExpressionBuilder {
   static const Set<String> _operators = {'+', '-', '×', '÷', '%', '*', '/'};
   static final _operatorSplitPattern = RegExp(r'[+\-×÷%()]');
+
+  /// A scientific number at the end, e.g. "9.99999998×10¹⁷".
+  static final _trailingScientificPattern = RegExp(
+    '([0-9.]+×10[${ResultFormatter.superscriptChars}]+)\$',
+  );
+
+  /// A negated scientific number at the end, e.g. "(-9.99999998×10¹⁷)".
+  static final _trailingNegScientificPattern = RegExp(
+    '\\(-([0-9.]+×10[${ResultFormatter.superscriptChars}]+)\\)\$',
+  );
+
+  static bool _endsWithExponent(String expression) =>
+      expression.isNotEmpty &&
+      ResultFormatter.superscriptChars.contains(
+        expression[expression.length - 1],
+      );
 
   static int countOperations(String expression) {
     if (expression.isEmpty) return 0;
@@ -66,6 +83,10 @@ class ExpressionBuilder {
     String currentExpression,
     String number,
   ) {
+    if (_endsWithExponent(currentExpression)) {
+      return ExpressionResult(expression: currentExpression);
+    }
+
     String resultingExpression;
 
     if (number == '.') {
@@ -167,7 +188,8 @@ class ExpressionBuilder {
       }
     } else {
       final lastChar = currentExpression[currentExpression.length - 1];
-      if (_operators.contains(lastChar)) {
+      // '%' ends an operand (e.g. "10%"), so keep it and append the operator.
+      if (_operators.contains(lastChar) && lastChar != '%') {
         resultingExpression =
             currentExpression.substring(0, currentExpression.length - 1) +
             operator;
@@ -249,6 +271,32 @@ class ExpressionBuilder {
     final lastChar = currentExpression[currentExpression.length - 1];
     if (_operators.contains(lastChar)) {
       final resultingExpression = '$currentExpression(-';
+      final error = validateExpressionLimits(resultingExpression);
+      if (error != null) {
+        return ExpressionResult(
+          expression: currentExpression,
+          errorMessage: error,
+        );
+      }
+      return ExpressionResult(expression: resultingExpression);
+    }
+
+    // Scientific numbers: "(-9.9×10¹⁷)" -> "9.9×10¹⁷", "9.9×10¹⁷" -> "(-9.9×10¹⁷)"
+    final negSci = _trailingNegScientificPattern.firstMatch(currentExpression);
+    if (negSci != null) {
+      return ExpressionResult(
+        expression:
+            '${currentExpression.substring(0, negSci.start)}${negSci.group(1)}',
+      );
+    }
+    final sci = _trailingScientificPattern.firstMatch(currentExpression);
+    if (sci != null && sci.start == 1 && currentExpression.startsWith('-')) {
+      // A negative scientific result reused as-is, e.g. "-9.9×10¹⁷".
+      return ExpressionResult(expression: currentExpression.substring(1));
+    }
+    if (sci != null) {
+      final resultingExpression =
+          '${currentExpression.substring(0, sci.start)}(-${sci.group(1)})';
       final error = validateExpressionLimits(resultingExpression);
       if (error != null) {
         return ExpressionResult(

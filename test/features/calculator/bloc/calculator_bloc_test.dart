@@ -168,6 +168,36 @@ void main() {
       calculatorBloc.add(const CalculateResult('200×50%'));
     });
 
+    group('percentage after + / - is relative to the left operand', () {
+      const cases = {
+        '200+10%': '220',
+        '200-10%': '180',
+        '100+10%+10%': '121',
+        '2×3+10%': '6.6',
+        '(200+10%)×2': '440',
+        '(-5)+10%': '-5.5',
+        '50%': '0.5',
+        '200÷50%': '400',
+      };
+
+      cases.forEach((expression, expected) {
+        test('$expression = $expected', () async {
+          final expectation = expectLater(
+            calculatorBloc.stream,
+            emits(
+              isA<CalculatorState>().having(
+                (s) => s.result,
+                'result',
+                expected,
+              ),
+            ),
+          );
+          calculatorBloc.add(CalculateResult(expression));
+          await expectation;
+        });
+      });
+    });
+
     group('CalculateResult edge cases', () {
       test('does nothing when expression is empty', () {
         calculatorBloc.add(const CalculateResult(''));
@@ -238,6 +268,35 @@ void main() {
         calculatorBloc.add(const CalculateResult('(-5)×(-5)'));
         calculatorBloc.add(const CalculateResult('(-2)×(-2)'));
         calculatorBloc.add(const CalculateResult('5+(-3)'));
+      });
+    });
+
+    group('large and small results', () {
+      const cases = {
+        '999999999×999999999': '9.99999998×10¹⁷',
+        '99999×999999': '99,998,900,001',
+        '9.99999998×10¹⁷+1': '9.99999998×10¹⁷',
+        '(-9.99999998×10¹⁷)÷2': '-4.99999999×10¹⁷',
+        '1÷100000000': '1×10⁻⁸',
+      };
+
+      cases.forEach((expression, expected) {
+        test('$expression = $expected', () async {
+          final expectation = expectLater(
+            calculatorBloc.stream,
+            emits(
+              isA<CalculatorState>()
+                  .having((s) => s.result, 'result', expected)
+                  .having(
+                    (s) => s.history.first.result,
+                    'history result',
+                    expected,
+                  ),
+            ),
+          );
+          calculatorBloc.add(CalculateResult(expression));
+          await expectation;
+        });
       });
     });
   });

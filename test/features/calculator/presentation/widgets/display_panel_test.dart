@@ -414,5 +414,53 @@ void main() {
         );
       },
     );
+
+    testWidgets('scientific result draws exponent as raised plain digits', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: DisplayPanel(
+              calculatedExpression: '999999999×999999999',
+              result: '9.99999998×10¹⁷',
+              errorMessage: '',
+            ),
+          ),
+        ),
+      );
+
+      final exponent = tester.widget<Text>(
+        find.byKey(const Key('exponent')),
+      );
+      expect(exponent.data, '17');
+      expect(find.textContaining('9.99999998×10', findRichText: true),
+          findsOneWidget);
+      expect(find.textContaining('¹⁷', findRichText: true), findsNothing);
+    });
+
+    testWidgets('expression being typed draws exponent as raised digits', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: DisplayPanel(
+              expression: '(-8.879999982×10²⁰)×9',
+              result: '0',
+              errorMessage: '',
+            ),
+          ),
+        ),
+      );
+
+      final exponent = tester.widget<Text>(find.byKey(const Key('exponent')));
+      expect(exponent.data, '20');
+      expect(find.textContaining('²⁰', findRichText: true), findsNothing);
+      expect(
+        find.textContaining('(-8.879999982×10', findRichText: true),
+        findsOneWidget,
+      );
+    });
   });
 }

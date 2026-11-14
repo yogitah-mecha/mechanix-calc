@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
+import 'package:mechanix_calculator/features/calculator/data/utils/result_formatter.dart';
 import 'package:mechanix_calculator/l10n/app_localizations.dart';
 import 'package:widgets/widgets.dart';
 
@@ -108,7 +109,7 @@ class _DisplayPanelState extends State<DisplayPanel> {
           if (topExpression.isNotEmpty) ...[
             Align(
               alignment: Alignment.centerRight,
-              child: Text(
+              child: ExponentText(
                 topExpression,
                 textAlign: TextAlign.end,
                 softWrap: true,
@@ -126,7 +127,7 @@ class _DisplayPanelState extends State<DisplayPanel> {
           /// Use a small set of font sizes based on expression length
           Align(
             alignment: Alignment.centerRight,
-            child: Text(
+            child: ExponentText(
               bottomText,
               style: displayMediumStyle.copyWith(
                 fontSize: getDisplayFontSize(bottomText),
@@ -260,7 +261,7 @@ class _HistoryTile extends StatelessWidget {
             children: [
               Expanded(
                 flex: 3,
-                child: Text(
+                child: ExponentText(
                   item.expression,
                   textAlign: TextAlign.start,
                   maxLines: 1,
@@ -274,12 +275,12 @@ class _HistoryTile extends StatelessWidget {
               ),
               Expanded(
                 flex: 2,
-                child: Text(
+                child: ExponentText(
                   item.result,
                   textAlign: TextAlign.end,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   softWrap: false,
+                  overflow: TextOverflow.ellipsis,
                   style: textStyle.copyWith(
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
@@ -289,6 +290,81 @@ class _HistoryTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Text that may contain exponents such as "×10²⁰" (from scientific
+/// results). Superscript characters are unevenly spaced in the monospace
+/// font, so each exponent is drawn as smaller, raised plain digits.
+/// Wraps like normal [Text] unless [maxLines]/[softWrap] say otherwise.
+class ExponentText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final TextAlign? textAlign;
+  final int? maxLines;
+  final bool? softWrap;
+  final TextOverflow? overflow;
+
+  const ExponentText(
+    this.text, {
+    super.key,
+    required this.style,
+    this.textAlign,
+    this.maxLines,
+    this.softWrap,
+    this.overflow,
+  });
+
+  static final _exponentRun = RegExp('[${ResultFormatter.superscriptChars}]+');
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_exponentRun.hasMatch(text)) {
+      return Text(
+        text,
+        textAlign: textAlign,
+        maxLines: maxLines,
+        softWrap: softWrap,
+        overflow: overflow,
+        style: style,
+      );
+    }
+
+    final fontSize = style.fontSize ?? 14;
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final match in _exponentRun.allMatches(text)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.top,
+          child: Padding(
+            padding: EdgeInsets.only(left: fontSize * 0.04),
+            child: Text(
+              ResultFormatter.fromSuperscript(match[0]!),
+              key: const Key('exponent'),
+              maxLines: 1,
+              softWrap: false,
+              style: style.copyWith(fontSize: fontSize * 0.5, height: 1),
+            ),
+          ),
+        ),
+      );
+      last = match.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+
+    return Text.rich(
+      TextSpan(children: spans),
+      semanticsLabel: text,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      softWrap: softWrap,
+      overflow: overflow,
+      style: style,
     );
   }
 }

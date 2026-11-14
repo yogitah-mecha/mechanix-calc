@@ -138,6 +138,12 @@ final Map<LogicalKeyboardKey, CalculatorButtonData> logicalKeyboardKeyMap = {
   LogicalKeyboardKey.numpadEnter: const CalculatorButtonData(
     action: CalculatorActionType.calculate,
   ),
+  LogicalKeyboardKey.equal: const CalculatorButtonData(
+    action: CalculatorActionType.calculate,
+  ),
+  LogicalKeyboardKey.numpadEqual: const CalculatorButtonData(
+    action: CalculatorActionType.calculate,
+  ),
 
   LogicalKeyboardKey.backspace: const CalculatorButtonData(
     action: CalculatorActionType.delete,

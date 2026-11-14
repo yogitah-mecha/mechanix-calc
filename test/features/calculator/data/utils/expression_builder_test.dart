@@ -325,6 +325,21 @@ void main() {
         final res = ExpressionBuilder.handlePercentage('50');
         expect(res.expression, '50%');
       });
+
+      test('operator after % keeps the % and appends the operator', () {
+        expect(
+          ExpressionBuilder.handleOperator('200+10%', '+').expression,
+          '200+10%+',
+        );
+        expect(
+          ExpressionBuilder.handleOperator('50%', '×').expression,
+          '50%×',
+        );
+      });
+
+      test('operator after a normal operator still replaces it', () {
+        expect(ExpressionBuilder.handleOperator('200+', '-').expression, '200-');
+      });
     });
 
     group('Limits validation', () {
@@ -355,6 +370,39 @@ void main() {
         final expr100 = '1' * 100;
         final res = ExpressionBuilder.handleNumber(expr100, '2');
         expect(res.errorMessage, maxCharactersErrorMessage);
+      });
+    });
+
+    group('scientific numbers', () {
+      test('operator after a scientific result is appended', () {
+        expect(
+          ExpressionBuilder.handleOperator(
+            '',
+            '+',
+            previousResult: '9.99999998×10¹⁷',
+          ).expression,
+          '9.99999998×10¹⁷+',
+        );
+      });
+
+      test('digits cannot be typed straight after an exponent', () {
+        expect(
+          ExpressionBuilder.handleNumber('9.99999998×10¹⁷', '5').expression,
+          '9.99999998×10¹⁷',
+        );
+      });
+
+      test('toggle sign wraps and unwraps a scientific number', () {
+        final negated = ExpressionBuilder.handleToggleSign('9.9×10¹⁷');
+        expect(negated.expression, '(-9.9×10¹⁷)');
+        expect(
+          ExpressionBuilder.handleToggleSign(negated.expression).expression,
+          '9.9×10¹⁷',
+        );
+        expect(
+          ExpressionBuilder.handleToggleSign('-9.9×10¹⁷').expression,
+          '9.9×10¹⁷',
+        );
       });
     });
   });
