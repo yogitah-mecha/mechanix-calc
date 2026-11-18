@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
 import 'package:mechanix_calculator/features/calculator/bloc/calculator_state.dart';
+import 'package:mechanix_calculator/features/calculator/domain/input/superscript.dart';
 import 'package:mechanix_calculator/features/calculator/presentation/widgets/display_panel.dart';
 import 'package:mechanix_calculator/l10n/app_localizations.dart';
 import 'package:widgets/widgets.dart';
@@ -489,6 +490,191 @@ void main() {
         tester.widget<Text>(find.byKey(const ValueKey('exponent_1'))).data,
         '3',
       );
+    });
+
+    group('superscript powers are drawn as raised plain digits', () {
+      Future<void> pumpExpression(WidgetTester tester, String text) =>
+          tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: DisplayPanel(
+                  expression: text,
+                  result: '0',
+                  errorMessage: '',
+                ),
+              ),
+            ),
+          );
+
+      String exponent(WidgetTester tester, int index) => tester
+          .widget<Text>(find.byKey(ValueKey('exponent_$index')))
+          .data!;
+
+      final cases = {
+        // typed text -> (text before the power, raised digits)
+        '5²': ('5', '2'),
+        '2¹⁰': ('2', '10'),
+        '5⁰⁴⁵': ('5', '045'),
+        '5⁻²': ('5', '-2'),
+        '(2+3)²': ('(2+3)', '2'),
+        '(-5²)': ('(-5', '2'),
+        '2×10³': ('2×10', '3'),
+      };
+
+      cases.forEach((text, expected) {
+        final (base, digits) = expected;
+        testWidgets('"$text" shows "$base" with raised "$digits"', (
+          tester,
+        ) async {
+          await pumpExpression(tester, text);
+
+          expect(exponent(tester, 0), digits);
+          expect(
+            find.textContaining(base, findRichText: true),
+            findsWidgets,
+          );
+          // The superscript characters themselves are not drawn.
+          for (final char in Superscript.chars.split('')) {
+            expect(
+              find.textContaining(char, findRichText: true),
+              findsNothing,
+              reason: char,
+            );
+          }
+        });
+      });
+
+      testWidgets('a negative power still being typed shows a raised "-"', (
+        tester,
+      ) async {
+        await pumpExpression(tester, '5⁻');
+
+        expect(exponent(tester, 0), '-');
+      });
+
+      testWidgets('each power in an expression is raised separately', (
+        tester,
+      ) async {
+        await pumpExpression(tester, '3²+4²-(2+3)⁻¹');
+
+        expect(tester.takeException(), isNull);
+        expect(exponent(tester, 0), '2');
+        expect(exponent(tester, 1), '2');
+        expect(exponent(tester, 2), '-1');
+        expect(find.byKey(const ValueKey('exponent_3')), findsNothing);
+      });
+
+      testWidgets('^ is shown as typed, not raised', (tester) async {
+        await pumpExpression(tester, '2^10');
+
+        expect(find.text('2^10'), findsOneWidget);
+        expect(find.byKey(const ValueKey('exponent_0')), findsNothing);
+      });
+
+      testWidgets('a power on a result line is raised too', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: DisplayPanel(
+                calculatedExpression: '5⁰⁴⁵',
+                result: '2.842170943×10³¹',
+                errorMessage: '',
+              ),
+            ),
+          ),
+        );
+
+        // One power on the expression line, one on the result line.
+        final raised = find.byKey(const ValueKey('exponent_0'));
+        expect(raised, findsNWidgets(2));
+        expect(
+          tester.widgetList<Text>(raised).map((t) => t.data).toSet(),
+          {'045', '31'},
+        );
+        expect(
+          find.textContaining('2.842170943×10', findRichText: true),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('history entries raise their powers', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: HistoryOverlay(
+                history: [HistoryItem(expression: '5²', result: '25')],
+              ),
+            ),
+          ),
+        );
+
+        expect(exponent(tester, 0), '2');
+        expect(find.textContaining('²', findRichText: true), findsNothing);
+      });
+    });
+
+    group('ExponentText', () {
+      testWidgets('draws the power at half the font size, top-aligned', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: ExponentText('5²', style: TextStyle(fontSize: 40)),
+            ),
+          ),
+        );
+
+        final raised = tester.widget<Text>(
+          find.byKey(const ValueKey('exponent_0')),
+        );
+        expect(raised.data, '2');
+        expect(raised.style?.fontSize, 20);
+
+        final richText = tester.widget<RichText>(
+          find
+              .ancestor(
+                of: find.byKey(const ValueKey('exponent_0')),
+                matching: find.byType(RichText),
+              )
+              .last,
+        );
+        final placeholders = <WidgetSpan>[];
+        richText.text.visitChildren((span) {
+          if (span is WidgetSpan) placeholders.add(span);
+          return true;
+        });
+        expect(placeholders.single.alignment, PlaceholderAlignment.top);
+      });
+
+      testWidgets('text without superscripts is a plain Text', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: ExponentText('12+3', style: TextStyle(fontSize: 40)),
+            ),
+          ),
+        );
+
+        expect(find.text('12+3'), findsOneWidget);
+        expect(find.byKey(const ValueKey('exponent_0')), findsNothing);
+      });
+
+      testWidgets('screen readers get the full text', (tester) async {
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: ExponentText('5⁻²', style: TextStyle(fontSize: 40)),
+            ),
+          ),
+        );
+
+        expect(find.bySemanticsLabel('5⁻²'), findsOneWidget);
+        handle.dispose();
+      });
     });
   });
 }

@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
 import 'package:mechanix_calculator/features/calculator/data/utils/expression_builder.dart';
 
+/// String-level tests of the adapter the screen uses. Token-level rules are
+/// in test/features/calculator/domain/input/expression_editor_test.dart.
 void main() {
   group('ExpressionBuilder', () {
     group('Number handling', () {
@@ -50,7 +52,7 @@ void main() {
       test('decimal after negative sign starts negative decimal', () {
         final res = ExpressionBuilder.handleNumber('(-', '.');
 
-        expect(res.expression, '(-0.');
+        expect(res.expression, '(-0.)');
         expect(res.errorMessage, '');
       });
 
@@ -89,11 +91,26 @@ void main() {
         expect(res.errorMessage, '');
       });
 
-      test('digit after normal closing parenthesis is appended', () {
-        final res = ExpressionBuilder.handleNumber('(5)', '6');
+      test('text that is not calculator input is left unchanged', () {
+        final res = ExpressionBuilder.handleNumber('2(3)', '6');
 
-        expect(res.expression, '(5)6');
+        expect(res.expression, '2(3)');
         expect(res.errorMessage, '');
+      });
+
+      test('digit after ) starts a multiplied number', () {
+        expect(ExpressionBuilder.handleNumber('(5)', '6').expression, '(5)×6');
+      });
+
+      test('digit after % starts a multiplied number', () {
+        expect(
+          ExpressionBuilder.handleNumber('15×10%', '1').expression,
+          '15×10%×1',
+        );
+      });
+
+      test('a typed leading - is shown bracketed once a digit follows', () {
+        expect(ExpressionBuilder.handleNumber('-', '5').expression, '(-5)');
       });
     });
 
@@ -335,14 +352,14 @@ void main() {
           ExpressionBuilder.handleOperator('200+10%', '+').expression,
           '200+10%+',
         );
-        expect(
-          ExpressionBuilder.handleOperator('50%', '×').expression,
-          '50%×',
-        );
+        expect(ExpressionBuilder.handleOperator('50%', '×').expression, '50%×');
       });
 
       test('operator after a normal operator still replaces it', () {
-        expect(ExpressionBuilder.handleOperator('200+', '-').expression, '200-');
+        expect(
+          ExpressionBuilder.handleOperator('200+', '-').expression,
+          '200-',
+        );
       });
     });
 
@@ -361,13 +378,15 @@ void main() {
         String expr = '';
         for (int i = 0; i < 20; i++) {
           expr = ExpressionBuilder.handleNumber(expr, '1').expression;
-          expr = ExpressionBuilder.handleOperator(expr, '+').expression;
+          final res = ExpressionBuilder.handleOperator(expr, '+');
+          expect(res.errorMessage, '');
+          expr = res.expression;
         }
-        expect(ExpressionBuilder.countOperations(expr), 20);
 
         expr = ExpressionBuilder.handleNumber(expr, '1').expression;
         final resOver = ExpressionBuilder.handleOperator(expr, '+');
         expect(resOver.errorMessage, maxOperationsErrorMessage);
+        expect(resOver.expression, expr);
       });
 
       test('blocks exceeding 100 characters', () {
@@ -377,7 +396,7 @@ void main() {
       });
     });
 
-    group('scientific numbers', () {
+    group('scientific results', () {
       test('operator after a scientific result is appended', () {
         expect(
           ExpressionBuilder.handleOperator(
@@ -389,28 +408,41 @@ void main() {
         );
       });
 
-      test('digits cannot be typed straight after an exponent', () {
+      test('digits cannot be typed straight after a power', () {
         expect(
           ExpressionBuilder.handleNumber('9.99999998×10¹⁷', '5').expression,
           '9.99999998×10¹⁷',
         );
       });
 
-      test('toggle sign wraps and unwraps a scientific number', () {
-        final negated = ExpressionBuilder.handleToggleSign('9.9×10¹⁷');
-        expect(negated.expression, '(-9.9×10¹⁷)');
+      test('+/- negates a previous result', () {
+        for (final (result, expected) in [
+          ('8', '(-8)'),
+          ('9.9×10¹⁷', '(-9.9)×10¹⁷'),
+          ('-9.9×10¹⁷', '9.9×10¹⁷'),
+        ]) {
+          expect(
+            ExpressionBuilder.handleToggleSign(
+              '',
+              previousResult: result,
+            ).expression,
+            expected,
+            reason: result,
+          );
+        }
+      });
+
+      test('+/- on typed input flips the last number', () {
         expect(
-          ExpressionBuilder.handleToggleSign(negated.expression).expression,
-          '9.9×10¹⁷',
+          ExpressionBuilder.handleToggleSign('9.9×10¹⁷').expression,
+          '9.9×(-10¹⁷)',
         );
         expect(
-          ExpressionBuilder.handleToggleSign('-9.9×10¹⁷').expression,
+          ExpressionBuilder.handleToggleSign('9.9×(-10¹⁷)').expression,
           '9.9×10¹⁷',
         );
       });
-    });
 
-    group('scientific numbers are single tokens', () {
       List<String> backspaceSteps(String expression) {
         final steps = [expression];
         while (steps.last.isNotEmpty) {
@@ -419,7 +451,7 @@ void main() {
         return steps;
       }
 
-      test('backspace removes exponent digits one by one, then the rest', () {
+      test('backspace removes power digits one by one, then the rest', () {
         expect(backspaceSteps('9.9×10¹⁷'), [
           '9.9×10¹⁷',
           '9.9×10¹',
@@ -433,37 +465,70 @@ void main() {
         ]);
       });
 
-      test('backspace inside a negated scientific number keeps parens', () {
-        expect(backspaceSteps('2×(-9.9×10¹⁷)'), [
-          '2×(-9.9×10¹⁷)',
-          '2×(-9.9×10¹)',
-          '2×(-9.9×10)',
-          '2×(-9.9×1)',
-          '2×(-9.9×)',
-          '2×(-9.9)',
-          '2×(-9.)',
-          '2×(-9)',
-          '2×',
-          '2',
-          '',
-        ]);
-      });
-
-      test('backspace drops a lone exponent sign', () {
+      test('backspace drops a lone power sign', () {
         expect(ExpressionBuilder.handleDelete('1.2×10⁻⁷').expression, '1.2×10');
       });
 
-      test('% cannot follow an exponent', () {
+      test('% cannot follow a power', () {
         expect(
           ExpressionBuilder.handlePercentage('9.9×10¹⁷').expression,
           '9.9×10¹⁷',
         );
       });
 
-      test('× inside a scientific number is not counted as an operation', () {
-        expect(ExpressionBuilder.countOperations('9.9×10¹⁷'), 0);
-        expect(ExpressionBuilder.countOperations('9.9×10¹⁷+1'), 1);
-        expect(ExpressionBuilder.countOperations('5×10'), 1);
+      test('older "(-9.9×10¹⁷)" text is read as a bracket and takes %', () {
+        expect(
+          ExpressionBuilder.handlePercentage('(-9.9×10¹⁷)').expression,
+          '((-9.9)×10¹⁷)%',
+        );
+      });
+    });
+
+    group('brackets, ^ and superscript powers', () {
+      test('( and ) with the multiplication written out', () {
+        var expression = '2';
+        expression = ExpressionBuilder.handleOpenBracket(expression).expression;
+        expect(expression, '2×(');
+        expression = ExpressionBuilder.handleNumber(expression, '3').expression;
+        expression = ExpressionBuilder.handleOperator(
+          expression,
+          '+',
+        ).expression;
+        expression = ExpressionBuilder.handleNumber(expression, '4').expression;
+        expression = ExpressionBuilder.handleCloseBracket(
+          expression,
+        ).expression;
+        expect(expression, '2×(3+4)');
+        expect(
+          ExpressionBuilder.handleCloseBracket(expression).expression,
+          '2×(3+4)',
+        );
+      });
+
+      test('= closes open brackets', () {
+        expect(ExpressionBuilder.closeBrackets('2×(3+(4'), '2×(3+(4))');
+        expect(ExpressionBuilder.closeBrackets('5+'), '5+');
+      });
+
+      test('^ is an operator', () {
+        expect(ExpressionBuilder.handleOperator('2', '^').expression, '2^');
+        expect(ExpressionBuilder.handleOperator('2^', '+').expression, '2+');
+      });
+
+      test('superscript digits build a power', () {
+        var expression = '5';
+        for (final digit in ['1', '0']) {
+          expression = ExpressionBuilder.handleSuperscript(
+            expression,
+            digit,
+          ).expression;
+        }
+        expect(expression, '5¹⁰');
+        expect(ExpressionBuilder.handleSuperscript('5+', '2').expression, '5+');
+        expect(
+          ExpressionBuilder.handleSuperscript('(2+3)', '2').expression,
+          '(2+3)²',
+        );
       });
     });
   });

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mechanix_calculator/features/calculator/data/utils/result_formatter.dart';
+import 'package:mechanix_calculator/features/calculator/presentation/formatting/result_formatter.dart';
 
 void main() {
   group('ResultFormatter.format', () {

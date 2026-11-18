@@ -141,7 +141,11 @@ void main() {
           isA<CalculatorState>()
               .having((s) => s.result, 'result', '0')
               .having((s) => s.history.length, 'history length', 2)
-              .having((s) => s.history.first.expression, 'history expr', '-10×0')
+              .having(
+                (s) => s.history.first.expression,
+                'history expr',
+                '-10×0',
+              )
               .having((s) => s.history.first.result, 'history result', '0'),
         ];
 
@@ -218,57 +222,63 @@ void main() {
         calculatorBloc.add(const CalculateResult('1000+2000'));
       });
 
-      test('calculates expressions with negative operands without brackets correctly', () {
-        final expectedStates = [
-          // 1. -2×-2 = 4
-          isA<CalculatorState>()
-              .having((s) => s.result, 'result', '4')
-              .having((s) => s.history.first.expression, 'expr', '-2×-2')
-              .having((s) => s.history.first.result, 'result', '4'),
-          // 2. 5+-3 = 2
-          isA<CalculatorState>()
-              .having((s) => s.result, 'result', '2')
-              .having((s) => s.history.first.expression, 'expr', '5+-3')
-              .having((s) => s.history.first.result, 'result', '2'),
-          // 3. 10--20 = 30
-          isA<CalculatorState>()
-              .having((s) => s.result, 'result', '30')
-              .having((s) => s.history.first.expression, 'expr', '10--20')
-              .having((s) => s.history.first.result, 'result', '30'),
-        ];
+      test(
+        'calculates expressions with negative operands without brackets correctly',
+        () {
+          final expectedStates = [
+            // 1. -2×-2 = 4
+            isA<CalculatorState>()
+                .having((s) => s.result, 'result', '4')
+                .having((s) => s.history.first.expression, 'expr', '-2×-2')
+                .having((s) => s.history.first.result, 'result', '4'),
+            // 2. 5+-3 = 2
+            isA<CalculatorState>()
+                .having((s) => s.result, 'result', '2')
+                .having((s) => s.history.first.expression, 'expr', '5+-3')
+                .having((s) => s.history.first.result, 'result', '2'),
+            // 3. 10--20 = 30
+            isA<CalculatorState>()
+                .having((s) => s.result, 'result', '30')
+                .having((s) => s.history.first.expression, 'expr', '10--20')
+                .having((s) => s.history.first.result, 'result', '30'),
+          ];
 
-        expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
+          expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
 
-        calculatorBloc.add(const CalculateResult('-2×-2'));
-        calculatorBloc.add(const CalculateResult('5+-3'));
-        calculatorBloc.add(const CalculateResult('10--20'));
-      });
+          calculatorBloc.add(const CalculateResult('-2×-2'));
+          calculatorBloc.add(const CalculateResult('5+-3'));
+          calculatorBloc.add(const CalculateResult('10--20'));
+        },
+      );
 
-      test('calculates expressions with parenthesized negative operands correctly', () {
-        final expectedStates = [
-          // 1. (-5)×(-5) = 25
-          isA<CalculatorState>()
-              .having((s) => s.result, 'result', '25')
-              .having((s) => s.history.first.expression, 'expr', '(-5)×(-5)')
-              .having((s) => s.history.first.result, 'result', '25'),
-          // 2. (-2)×(-2) = 4
-          isA<CalculatorState>()
-              .having((s) => s.result, 'result', '4')
-              .having((s) => s.history.first.expression, 'expr', '(-2)×(-2)')
-              .having((s) => s.history.first.result, 'result', '4'),
-          // 3. 5+(-3) = 2
-          isA<CalculatorState>()
-              .having((s) => s.result, 'result', '2')
-              .having((s) => s.history.first.expression, 'expr', '5+(-3)')
-              .having((s) => s.history.first.result, 'result', '2'),
-        ];
+      test(
+        'calculates expressions with parenthesized negative operands correctly',
+        () {
+          final expectedStates = [
+            // 1. (-5)×(-5) = 25
+            isA<CalculatorState>()
+                .having((s) => s.result, 'result', '25')
+                .having((s) => s.history.first.expression, 'expr', '(-5)×(-5)')
+                .having((s) => s.history.first.result, 'result', '25'),
+            // 2. (-2)×(-2) = 4
+            isA<CalculatorState>()
+                .having((s) => s.result, 'result', '4')
+                .having((s) => s.history.first.expression, 'expr', '(-2)×(-2)')
+                .having((s) => s.history.first.result, 'result', '4'),
+            // 3. 5+(-3) = 2
+            isA<CalculatorState>()
+                .having((s) => s.result, 'result', '2')
+                .having((s) => s.history.first.expression, 'expr', '5+(-3)')
+                .having((s) => s.history.first.result, 'result', '2'),
+          ];
 
-        expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
+          expectLater(calculatorBloc.stream, emitsInOrder(expectedStates));
 
-        calculatorBloc.add(const CalculateResult('(-5)×(-5)'));
-        calculatorBloc.add(const CalculateResult('(-2)×(-2)'));
-        calculatorBloc.add(const CalculateResult('5+(-3)'));
-      });
+          calculatorBloc.add(const CalculateResult('(-5)×(-5)'));
+          calculatorBloc.add(const CalculateResult('(-2)×(-2)'));
+          calculatorBloc.add(const CalculateResult('5+(-3)'));
+        },
+      );
     });
 
     group('large and small results', () {
@@ -346,5 +356,166 @@ void main() {
       await expectation;
     });
 
+    // Expressions arrive as display text (from the screen or a history
+    // entry); the Bloc reads them into tokens and evaluates them.
+    Future<void> expectEvaluates(String expression, String expected) async {
+      final expectation = expectLater(
+        calculatorBloc.stream,
+        emits(
+          isA<CalculatorState>()
+              .having((s) => s.result, 'result', expected)
+              .having((s) => s.errorMessage, 'errorMessage', '')
+              .having((s) => s.history.first.expression, 'history', expression)
+              .having((s) => s.history.first.result, 'history result', expected),
+        ),
+      );
+      calculatorBloc.add(CalculateResult(expression));
+      await expectation;
+    }
+
+    Future<void> expectError(String expression) async {
+      final expectation = expectLater(
+        calculatorBloc.stream,
+        emits(
+          isA<CalculatorState>()
+              .having((s) => s.expression, 'expression', expression)
+              .having((s) => s.result, 'result', '')
+              .having(
+                (s) => s.errorMessage,
+                'errorMessage',
+                invalidOperationsErrorMessage,
+              )
+              .having((s) => s.history, 'history', isEmpty),
+        ),
+      );
+      calculatorBloc.add(CalculateResult(expression));
+      await expectation;
+    }
+
+    group('brackets', () {
+      final cases = {
+        '2×(3+4)': '14',
+        '(2+3)×4': '20',
+        '(1+2)×(3+4)': '21',
+        '((2))': '2',
+        '((1+2)×3)': '9',
+        '2×((-5)+3)': '-4',
+        '(10-2)÷(1+3)': '2',
+        '100-(20+30)': '50',
+        '(2+3)%': '0.05',
+        '(200+10%)×2': '440',
+      };
+      cases.forEach((expression, expected) {
+        test('$expression = $expected', () async {
+          await expectEvaluates(expression, expected);
+        });
+      });
+    });
+
+    group('powers with ^', () {
+      final cases = {
+        '2^10': '1,024',
+        '2^0': '1',
+        '2^3^2': '512', // right associative
+        '2×3^2': '18', // ^ before ×
+        '(2+3)^2': '25',
+        '2^(1+2)': '8',
+        '4^0.5': '2',
+        '5^(-2)': '0.04',
+        '(-2)^3': '-8',
+        '(-2)^2': '4',
+        '10^15': '1×10¹⁵',
+        '10^(-7)': '1×10⁻⁷',
+      };
+      cases.forEach((expression, expected) {
+        test('$expression = $expected', () async {
+          await expectEvaluates(expression, expected);
+        });
+      });
+    });
+
+    group('superscript powers', () {
+      final cases = {
+        '5²': '25',
+        '2¹⁰': '1,024',
+        '5⁰⁴⁵': '2.842170943×10³¹',
+        '5⁻²': '0.04',
+        '10⁻³': '0.001',
+        '(2+3)²': '25',
+        '(2+3)⁻¹': '0.2',
+        '(-5²)': '-25',
+        '3²+4²': '25',
+        '2×3²': '18',
+        '9.9×10¹⁷+1': '9.9×10¹⁷',
+        '1.2×10⁻⁷×2': '2.4×10⁻⁷',
+      };
+      cases.forEach((expression, expected) {
+        test('$expression = $expected', () async {
+          await expectEvaluates(expression, expected);
+        });
+      });
+    });
+
+    group('errors: undefined or overflowing results', () {
+      for (final expression in [
+        '5÷0',
+        '0÷0',
+        '5÷(2-2)',
+        '0^0',
+        '(-8)^(1÷3)', // non-integer power of a negative base
+        '(-2)^0.5',
+        '(-84)^7%',
+        '9.9×10³⁰⁷×100', // overflow
+        '10^400',
+      ]) {
+        test('"$expression" shows Error', () async {
+          await expectError(expression);
+        });
+      }
+    });
+
+    group('errors: unfinished or malformed input', () {
+      for (final expression in [
+        '5+',
+        '5×',
+        '2^',
+        '(2+3', // the screen closes brackets before sending
+        '(',
+        '(-',
+        '5⁻', // negative superscript power without digits
+        '()',
+        '5)',
+        '2(3)',
+        '5++5',
+        '^2',
+        '²',
+        'abc',
+      ]) {
+        test('"$expression" shows Error', () async {
+          await expectError(expression);
+        });
+      }
+    });
+
+    test('an error does not add to history and a later result does', () async {
+      final expectation = expectLater(
+        calculatorBloc.stream,
+        emitsInOrder([
+          isA<CalculatorState>()
+              .having((s) => s.errorMessage, 'errorMessage',
+                  invalidOperationsErrorMessage)
+              .having((s) => s.history, 'history', isEmpty),
+          isA<CalculatorState>()
+              .having((s) => s.errorMessage, 'errorMessage', '')
+              .having((s) => s.result, 'result', '25')
+              .having((s) => s.history.length, 'history length', 1)
+              .having((s) => s.history.first.expression, 'history', '5²'),
+        ]),
+      );
+      calculatorBloc
+        ..add(const CalculateResult('(-8)^(1÷3)'))
+        ..add(const CalculateResult('5²'));
+      await expectation;
+    });
   });
 }

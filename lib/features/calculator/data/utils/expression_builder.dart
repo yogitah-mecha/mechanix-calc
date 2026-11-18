@@ -1,6 +1,10 @@
 import 'package:equatable/equatable.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
-import 'package:mechanix_calculator/features/calculator/data/utils/result_formatter.dart';
+import 'package:mechanix_calculator/features/calculator/domain/input/calc_operator.dart';
+import 'package:mechanix_calculator/features/calculator/domain/input/expression_editor.dart';
+import 'package:mechanix_calculator/features/calculator/domain/input/expression_reader.dart';
+import 'package:mechanix_calculator/features/calculator/domain/input/input_token.dart';
+import 'package:mechanix_calculator/features/calculator/presentation/formatting/expression_renderer.dart';
 
 class ExpressionResult extends Equatable {
   final String expression;
@@ -12,379 +16,125 @@ class ExpressionResult extends Equatable {
   List<Object?> get props => [expression, errorMessage];
 }
 
-class ExpressionBuilder {
-  static const Set<String> _operators = {'+', '-', '×', '÷', '%', '*', '/'};
-  static final _operatorSplitPattern = RegExp(r'[+\-×÷%()]');
-
-  /// A scientific number at the end, e.g. "9.99999998×10¹⁷".
-  static final _trailingScientificPattern = RegExp(
-    '([0-9.]+×10[${ResultFormatter.superscriptChars}]+)\$',
-  );
-
-  /// A negated scientific number at the end, e.g. "(-9.99999998×10¹⁷)".
-  static final _trailingNegScientificPattern = RegExp(
-    '\\(-([0-9.]+×10[${ResultFormatter.superscriptChars}]+)\\)\$',
-  );
-
-  static final _scientificTimesPattern = RegExp(
-    '×10[${ResultFormatter.superscriptChars}]',
-  );
-
-  static bool _isScientificTimes(String expression, int index) =>
-      _scientificTimesPattern.matchAsPrefix(expression, index) != null;
-
-  static bool _endsWithExponent(String expression) =>
-      expression.isNotEmpty &&
-      ResultFormatter.superscriptChars.contains(
-        expression[expression.length - 1],
-      );
-
-  static int countOperations(String expression) {
-    if (expression.isEmpty) return 0;
-
-    int count = 0;
-
-    for (int i = 0; i < expression.length; i++) {
-      final char = expression[i];
-
-      if (!_operators.contains(char)) continue;
-
-      // The × in a scientific number ("9.9×10¹⁷") is part of the number,
-      // not an operation the user typed.
-      if (char == '×' && _isScientificTimes(expression, i)) continue;
-
-      if (char == '-' &&
-          (i == 0 ||
-              _operators.contains(expression[i - 1]) ||
-              expression[i - 1] == '(')) {
-        continue;
-      }
-
-      count++;
-    }
-
-    return count;
-  }
-
-  static bool hasNumberExceedingMaxDigits(String expression) {
-    final segments = expression.split(_operatorSplitPattern);
-    for (final segment in segments) {
-      final digits = segment.replaceAll(RegExp(r'\D'), '');
-      if (digits.length > maxDigits) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  static String? validateExpressionLimits(String expression) {
-    if (expression.length > maxCharacters) {
-      return maxCharactersErrorMessage;
-    }
-    if (countOperations(expression) > maxOperations) {
-      return maxOperationsErrorMessage;
-    }
-    if (hasNumberExceedingMaxDigits(expression)) {
-      return maxDigitsErrorMessage;
-    }
-    return null;
-  }
+/// String adapter over [ExpressionEditor] for `CalculatorScreen`,
+/// Each call reads the text into tokens, applies one edit and renders the
+/// result.
+abstract final class ExpressionBuilder {
+  static const _reader = ExpressionReader();
+  static const _renderer = ExpressionRenderer();
+  static const _editor = ExpressionEditor(renderer: _renderer);
 
   static ExpressionResult handleNumber(
     String currentExpression,
     String number,
-  ) {
-    if (_endsWithExponent(currentExpression)) {
-      return ExpressionResult(expression: currentExpression);
-    }
+  ) => _edit(
+    currentExpression,
+    (tokens) => number == '.'
+        ? _editor.appendDecimalPoint(tokens)
+        : _editor.appendDigit(tokens, number),
+  );
 
-    String resultingExpression;
-
-    if (number == '.') {
-      final segments = currentExpression.split(_operatorSplitPattern);
-      if (segments.isNotEmpty && segments.last.contains('.')) {
-        return ExpressionResult(expression: currentExpression);
-      }
-      if (currentExpression.isEmpty || currentExpression == '0') {
-        resultingExpression = '0.';
-      } else if (currentExpression.endsWith('(-')) {
-        resultingExpression = '${currentExpression}0.';
-      } else if (currentExpression.endsWith(')')) {
-        final match = RegExp(r'\(-([0-9.]+)\)$').firstMatch(currentExpression);
-        if (match != null) {
-          final inner = match.group(1)!;
-          if (!inner.contains('.')) {
-            resultingExpression =
-                '${currentExpression.substring(0, match.start)}(-$inner.)';
-          } else {
-            return ExpressionResult(expression: currentExpression);
-          }
-        } else {
-          resultingExpression = '$currentExpression.';
-        }
-      } else if (currentExpression.isNotEmpty &&
-          _operators.contains(
-            currentExpression[currentExpression.length - 1],
-          )) {
-        resultingExpression = '${currentExpression}0.';
-      } else {
-        resultingExpression = '$currentExpression.';
-      }
-    } else {
-      if (currentExpression == '0') {
-        resultingExpression = number;
-      } else if (currentExpression.endsWith('(-')) {
-        resultingExpression = '$currentExpression$number)';
-      } else if (currentExpression.endsWith(')')) {
-        final match = RegExp(r'\(-([0-9.]+)\)$').firstMatch(currentExpression);
-        if (match != null) {
-          final inner = match.group(1)!;
-          final updatedInner = inner == '0' ? number : '$inner$number';
-          resultingExpression =
-              '${currentExpression.substring(0, match.start)}(-$updatedInner)';
-        } else {
-          resultingExpression = currentExpression + number;
-        }
-      } else {
-        resultingExpression = currentExpression + number;
-      }
-    }
-
-    final error = validateExpressionLimits(resultingExpression);
-    if (error != null) {
-      return ExpressionResult(
-        expression: currentExpression,
-        errorMessage: error,
-      );
-    }
-
-    return ExpressionResult(expression: resultingExpression);
-  }
+  /// Ctrl+digit or Ctrl+`-`: extends the power of the last number or `)`.
+  static ExpressionResult handleSuperscript(
+    String currentExpression,
+    String char,
+  ) => _edit(
+    currentExpression,
+    (tokens) => _editor.appendSuperscript(tokens, char),
+  );
 
   static ExpressionResult handleOperator(
     String currentExpression,
     String operator, {
     String? previousResult,
   }) {
-    if (currentExpression.isEmpty && operator == '-') {
-      return const ExpressionResult(expression: '(-');
-    }
-
-    String resultingExpression;
-    if (currentExpression.isEmpty) {
-      if (previousResult != null && previousResult.isNotEmpty) {
-        final sanitized = previousResult.replaceAll(',', '');
-        resultingExpression = sanitized.startsWith('-')
-            ? '($sanitized)$operator'
-            : '$sanitized$operator';
-      } else {
-        return ExpressionResult(expression: currentExpression);
-      }
-    } else if (currentExpression == '(-' || currentExpression == '-') {
-      return const ExpressionResult(expression: '');
-    } else if (currentExpression.endsWith('(-')) {
-      resultingExpression = currentExpression.substring(
-        0,
-        currentExpression.length - 2,
-      );
-      if (resultingExpression.isNotEmpty &&
-          _operators.contains(
-            resultingExpression[resultingExpression.length - 1],
-          )) {
-        resultingExpression =
-            resultingExpression.substring(0, resultingExpression.length - 1) +
-            operator;
-      } else {
-        resultingExpression += operator;
-      }
-    } else {
-      final lastChar = currentExpression[currentExpression.length - 1];
-      // '%' ends an operand (e.g. "10%"), so keep it and append the operator.
-      if (_operators.contains(lastChar) && lastChar != '%') {
-        resultingExpression =
-            currentExpression.substring(0, currentExpression.length - 1) +
-            operator;
-      } else {
-        resultingExpression = currentExpression + operator;
-      }
-    }
-
-    final error = validateExpressionLimits(resultingExpression);
-    if (error != null) {
-      return ExpressionResult(
-        expression: currentExpression,
-        errorMessage: error,
-      );
-    }
-
-    return ExpressionResult(expression: resultingExpression);
-  }
-
-  static final _trailingNegGroupPattern = RegExp(r'\(-([^()]*)\)$');
-
-  /// Removes the last character. A lone exponent sign left behind
-  /// ("10⁻⁷" -> "10⁻") is removed too, so the rest can still be evaluated.
-  static String _dropLastChar(String text) {
-    var result = text.substring(0, text.length - 1);
-    if (result.endsWith('⁻')) result = result.substring(0, result.length - 1);
-    return result;
-  }
-
-  /// Backspace removes one character, like the Ubuntu calculator, including
-  /// inside scientific numbers: "9.9×10¹⁷" -> "9.9×10¹" -> "9.9×10" -> …
-  static ExpressionResult handleDelete(String currentExpression) {
-    if (currentExpression.isEmpty) {
-      return const ExpressionResult(expression: '');
-    }
-
-    // Negative group "(-5)" or "(-9.9×10¹⁷)": edit inside the parentheses
-    // so they stay balanced; remove the group once it is empty.
-    final negGroup = _trailingNegGroupPattern.firstMatch(currentExpression);
-    if (negGroup != null) {
-      final prefix = currentExpression.substring(0, negGroup.start);
-      final inner = negGroup.group(1)!;
-      final remaining = inner.length > 1 ? _dropLastChar(inner) : '';
-      return ExpressionResult(
-        expression: remaining.isEmpty ? prefix : '$prefix(-$remaining)',
-      );
-    }
-
-    if (currentExpression.endsWith('(-')) {
-      return ExpressionResult(
-        expression: currentExpression.substring(
-          0,
-          currentExpression.length - 2,
-        ),
-      );
-    }
-
-    return ExpressionResult(expression: _dropLastChar(currentExpression));
-  }
-
-  static ExpressionResult handleClear() {
-    return const ExpressionResult(expression: '');
-  }
-
-  static ExpressionResult handleToggleSign(String currentExpression) {
-    if (currentExpression.isEmpty) {
-      return const ExpressionResult(expression: '(-');
-    }
-    if (currentExpression == '(-' || currentExpression == '-') {
-      return const ExpressionResult(expression: '');
-    }
-
-    // 1. If expression ends with an operator followed by '(-', e.g. "5×(-", remove '(-' -> "5×"
-    if (currentExpression.endsWith('(-')) {
-      return ExpressionResult(
-        expression: currentExpression.substring(
-          0,
-          currentExpression.length - 2,
-        ),
-      );
-    }
-
-    // 2. If expression ends with a trailing operator, e.g. "5×", "5+", "5÷", toggle adds '(-' -> "5×(-"
-    final lastChar = currentExpression[currentExpression.length - 1];
-    if (_operators.contains(lastChar)) {
-      final resultingExpression = '$currentExpression(-';
-      final error = validateExpressionLimits(resultingExpression);
-      if (error != null) {
-        return ExpressionResult(
-          expression: currentExpression,
-          errorMessage: error,
-        );
-      }
-      return ExpressionResult(expression: resultingExpression);
-    }
-
-    // Scientific numbers: "(-9.9×10¹⁷)" -> "9.9×10¹⁷", "9.9×10¹⁷" -> "(-9.9×10¹⁷)"
-    final negSci = _trailingNegScientificPattern.firstMatch(currentExpression);
-    if (negSci != null) {
-      return ExpressionResult(
-        expression:
-            '${currentExpression.substring(0, negSci.start)}${negSci.group(1)}',
-      );
-    }
-    final sci = _trailingScientificPattern.firstMatch(currentExpression);
-    if (sci != null && sci.start == 1 && currentExpression.startsWith('-')) {
-      // A negative scientific result reused as-is, e.g. "-9.9×10¹⁷".
-      return ExpressionResult(expression: currentExpression.substring(1));
-    }
-    if (sci != null) {
-      final resultingExpression =
-          '${currentExpression.substring(0, sci.start)}(-${sci.group(1)})';
-      final error = validateExpressionLimits(resultingExpression);
-      if (error != null) {
-        return ExpressionResult(
-          expression: currentExpression,
-          errorMessage: error,
-        );
-      }
-      return ExpressionResult(expression: resultingExpression);
-    }
-
-    // 3. If expression ends with a parenthesized negative number "(-<digits>)"
-    // e.g. "(-5)" -> "5", "2×(-5)" -> "2×5", "(-5)×(-5)" -> "(-5)×5"
-    final parenNegMatch = RegExp(
-      r'\(-([0-9.]+)\)$',
-    ).firstMatch(currentExpression);
-    if (parenNegMatch != null) {
-      final innerNumber = parenNegMatch.group(1)!;
-      final prefix = currentExpression.substring(0, parenNegMatch.start);
-      final resultingExpression = '$prefix$innerNumber';
-      return ExpressionResult(expression: resultingExpression);
-    }
-
-    // 4. If expression ends with unparenthesized negative number at start, e.g. "-5" -> "5"
-    if (currentExpression.startsWith('-') &&
-        RegExp(r'^-[0-9.]+$').hasMatch(currentExpression)) {
-      return ExpressionResult(expression: currentExpression.substring(1));
-    }
-
-    // 5. The expression ends with a positive number segment "<digits>"
-    // Find the start of the current (last) number segment.
-    int numStartIndex = currentExpression.length - 1;
-    while (numStartIndex >= 0 &&
-        (currentExpression[numStartIndex] == '.' ||
-            (currentExpression.codeUnitAt(numStartIndex) >= 48 &&
-                currentExpression.codeUnitAt(numStartIndex) <= 57))) {
-      numStartIndex--;
-    }
-
-    final numberPart = currentExpression.substring(numStartIndex + 1);
-    final prefix = currentExpression.substring(0, numStartIndex + 1);
-    final resultingExpression = '$prefix(-$numberPart)';
-
-    final error = validateExpressionLimits(resultingExpression);
-    if (error != null) {
-      return ExpressionResult(
-        expression: currentExpression,
-        errorMessage: error,
-      );
-    }
-
-    return ExpressionResult(expression: resultingExpression);
-  }
-
-  static ExpressionResult handlePercentage(String currentExpression) {
-    if (currentExpression.isEmpty) {
-      return const ExpressionResult(expression: '');
-    }
-
-    // "9.9×10¹⁷%" can't be evaluated; same rule as digits after an exponent.
-    if (_endsWithExponent(currentExpression)) {
+    final calcOperator = CalcOperator.fromSymbol(operator);
+    if (calcOperator == null) {
       return ExpressionResult(expression: currentExpression);
     }
+    final previous = previousResult == null
+        ? null
+        : _reader.readResult(previousResult);
+    return _edit(
+      currentExpression,
+      (tokens) => _editor.appendOperator(
+        tokens,
+        calcOperator,
+        previousResult: previous,
+      ),
+    );
+  }
 
-    final resultingExpression = '$currentExpression%';
-    final error = validateExpressionLimits(resultingExpression);
+  static ExpressionResult handleOpenBracket(String currentExpression) =>
+      _edit(currentExpression, _editor.appendOpenBracket);
+
+  static ExpressionResult handleCloseBracket(String currentExpression) =>
+      _edit(currentExpression, _editor.appendCloseBracket);
+
+  static ExpressionResult handleDelete(String currentExpression) => _edit(
+    currentExpression,
+    (tokens) => EditResult(_editor.backspace(tokens)),
+  );
+
+  static ExpressionResult handleClear() =>
+      const ExpressionResult(expression: '');
+
+  /// With empty input, +/- negates [previousResult]: `8` -> `(-8)`,
+  /// `-9.9×10¹⁷` -> `9.9×10¹⁷`.
+  static ExpressionResult handleToggleSign(
+    String currentExpression, {
+    String? previousResult,
+  }) {
+    if (currentExpression.isEmpty && previousResult != null) {
+      final result = _reader.readResult(previousResult);
+      if (result != null) {
+        return _render(_editor.negateResult(result), currentExpression);
+      }
+    }
+    return _edit(currentExpression, _editor.toggleSign);
+  }
+
+  static ExpressionResult handlePercentage(String currentExpression) =>
+      _edit(currentExpression, _editor.appendPercent);
+
+  /// The expression to evaluate on `=`: open brackets are closed.
+  static String closeBrackets(String currentExpression) {
+    try {
+      return _renderer.render(
+        _editor.closeBrackets(_reader.read(currentExpression)),
+      );
+    } on FormatException {
+      return currentExpression;
+    }
+  }
+
+  static ExpressionResult _edit(
+    String expression,
+    EditResult Function(List<InputToken>) edit,
+  ) {
+    final List<InputToken> tokens;
+    try {
+      tokens = _reader.read(expression);
+    } on FormatException {
+      return ExpressionResult(expression: expression);
+    }
+    return _render(edit(tokens), expression);
+  }
+
+  static ExpressionResult _render(EditResult result, String before) {
+    final error = result.error;
     if (error != null) {
       return ExpressionResult(
-        expression: currentExpression,
-        errorMessage: error,
+        expression: before,
+        errorMessage: _messages[error]!,
       );
     }
-
-    return ExpressionResult(expression: resultingExpression);
+    return ExpressionResult(expression: _renderer.render(result.tokens));
   }
+
+  static const _messages = {
+    InputLimitError.maxCharacters: maxCharactersErrorMessage,
+    InputLimitError.maxOperations: maxOperationsErrorMessage,
+    InputLimitError.maxDigits: maxDigitsErrorMessage,
+  };
 }

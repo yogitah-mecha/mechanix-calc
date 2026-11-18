@@ -94,16 +94,43 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       _onClearPressed();
       return;
     }
-    String currentExpr = _expressionNotifier.value;
-    if (currentExpr.isEmpty) {
-      final previousResult = context.read<CalculatorBloc>().state.result;
-      if (previousResult.isNotEmpty && previousResult != '0') {
-        currentExpr = previousResult.replaceAll(',', '');
-      }
-    }
-    final res = ExpressionBuilder.handleToggleSign(currentExpr);
+    final previousResult = context.read<CalculatorBloc>().state.result;
+    final res = ExpressionBuilder.handleToggleSign(
+      _expressionNotifier.value,
+      previousResult: previousResult == '0' ? null : previousResult,
+    );
     _expressionNotifier.value = res.expression;
     _errorMessageNotifier.value = res.errorMessage;
+  }
+
+  void _onSuperscriptPressed(String digit) {
+    if (_hasFatalError) {
+      _onClearPressed();
+      return;
+    }
+    _apply(
+      ExpressionBuilder.handleSuperscript(_expressionNotifier.value, digit),
+    );
+  }
+
+  void _onOpenBracketPressed() {
+    if (_hasFatalError) {
+      _onClearPressed();
+    }
+    _apply(ExpressionBuilder.handleOpenBracket(_expressionNotifier.value));
+  }
+
+  void _onCloseBracketPressed() {
+    if (_hasFatalError) {
+      _onClearPressed();
+      return;
+    }
+    _apply(ExpressionBuilder.handleCloseBracket(_expressionNotifier.value));
+  }
+
+  void _apply(ExpressionResult result) {
+    _expressionNotifier.value = result.expression;
+    _errorMessageNotifier.value = result.errorMessage;
   }
 
   void _onPercentagePressed() {
@@ -118,7 +145,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   void _onCalculateResult() {
     if (_expressionNotifier.value.isNotEmpty) {
-      final expr = _expressionNotifier.value;
+      final expr = ExpressionBuilder.closeBrackets(_expressionNotifier.value);
       _expressionNotifier.value = '';
       context.read<CalculatorBloc>().add(CalculateResult(expr));
     }
@@ -128,8 +155,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     switch (button.action) {
       case CalculatorActionType.number:
         _onNumberPressed(button.value ?? button.text ?? '');
+      case CalculatorActionType.superscript:
+        _onSuperscriptPressed(button.value!);
       case CalculatorActionType.operator:
         _onOperatorPressed(button.value ?? button.text ?? '');
+      case CalculatorActionType.openBracket:
+        _onOpenBracketPressed();
+      case CalculatorActionType.closeBracket:
+        _onCloseBracketPressed();
       case CalculatorActionType.clear:
         _onClearPressed();
       case CalculatorActionType.delete:
@@ -152,17 +185,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       return;
     }
 
-    final key = event.logicalKey;
-
-    // Special case: Shift + '=' => '+'
-    if (key == LogicalKeyboardKey.equal &&
-        HardwareKeyboard.instance.isShiftPressed) {
-      _closeHistory();
-      _onOperatorPressed('+');
-      return;
-    }
-
-    final action = logicalKeyboardKeyMap[key];
+    final keyboard = HardwareKeyboard.instance;
+    final action = buttonForKey(
+      event.logicalKey,
+      shift: keyboard.isShiftPressed,
+      control: keyboard.isControlPressed,
+      alt: keyboard.isAltPressed,
+      meta: keyboard.isMetaPressed,
+    );
     if (action != null) {
       // Same as tapping the button grid: typing closes the history panel.
       _closeHistory();

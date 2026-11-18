@@ -457,6 +457,166 @@ void main() {
         expect(find.text('4+').first, findsOneWidget);
       });
 
+      Future<String> resultAfterEnter(WidgetTester tester) async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.runAsync(() async {
+          for (var i = 0; i < 100 && bloc.state.history.isEmpty; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        });
+        await tester.pumpAndSettle();
+        return bloc.state.result;
+      }
+
+      Future<void> sendWith(
+        WidgetTester tester,
+        LogicalKeyboardKey modifier,
+        LogicalKeyboardKey key,
+      ) async {
+        await tester.sendKeyDownEvent(modifier);
+        await tester.sendKeyEvent(key);
+        await tester.sendKeyUpEvent(modifier);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('Ctrl + digit adds a superscript power: 5² = 25', (
+        tester,
+      ) async {
+        await tester.pumpWidget(createScreen());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.digit2,
+        );
+
+        expect(await resultAfterEnter(tester), '25');
+        expect(bloc.state.history.first.expression, '5²');
+      });
+
+      testWidgets('^ key: 2^10 = 1,024', (tester) async {
+        await tester.pumpWidget(createScreen());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.digit6,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+
+        expect(await resultAfterEnter(tester), '1,024');
+      });
+
+      testWidgets('negative power with ^: 5^-2 = 5^(-2) = 0.04', (
+        tester,
+      ) async {
+        await tester.pumpWidget(createScreen());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.digit6,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+
+        expect(await resultAfterEnter(tester), '0.04');
+        expect(bloc.state.history.first.expression, '5^(-2)');
+      });
+
+      testWidgets('negative superscript power: 5 Ctrl+- Ctrl+2 = 0.04', (
+        tester,
+      ) async {
+        await tester.pumpWidget(createScreen());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.minus,
+        );
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.digit2,
+        );
+
+        expect(await resultAfterEnter(tester), '0.04');
+        expect(bloc.state.history.first.expression, '5⁻²');
+      });
+
+      testWidgets('brackets: 2(3+4 = 2×(3+4) = 14', (tester) async {
+        await tester.pumpWidget(createScreen());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+        // The key simulator has no key code for the "(" or numpad "(" keys,
+        // so "(" is typed as Shift+9 (all map to the same action, see
+        // constant_test.dart).
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.digit9,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
+        await tester.sendKeyEvent(LogicalKeyboardKey.numpadAdd);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
+
+        expect(await resultAfterEnter(tester), '14');
+        expect(bloc.state.history.first.expression, '2×(3+4)');
+      });
+
+      testWidgets('Shift+9 and Shift+0 type brackets', (tester) async {
+        await tester.pumpWidget(createScreen());
+
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.digit9,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.numpadAdd);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.digit0,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.numpadMultiply);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
+
+        expect(await resultAfterEnter(tester), '9');
+        expect(bloc.state.history.first.expression, '(1+2)×3');
+      });
+
+      testWidgets('Ctrl, Alt and Meta with other keys type nothing', (
+        tester,
+      ) async {
+        await tester.pumpWidget(createScreen());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit7);
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.numpadAdd,
+        );
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.altLeft,
+          LogicalKeyboardKey.digit5,
+        );
+        await sendWith(
+          tester,
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.digit5,
+        );
+
+        expect(await resultAfterEnter(tester), '7');
+      });
+
       testWidgets('unmapped keys and non-KeyDown events are ignored safely', (
         tester,
       ) async {

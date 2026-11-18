@@ -3,7 +3,13 @@ import 'package:mechanix_calculator/features/calculator/presentation/widgets/cal
 
 enum CalculatorActionType {
   number,
+
+  /// A superscript digit or `-` added to the last power (keyboard: Ctrl+digit,
+  /// Ctrl+-).
+  superscript,
   operator,
+  openBracket,
+  closeBracket,
   clear,
   delete,
   toggleSign,

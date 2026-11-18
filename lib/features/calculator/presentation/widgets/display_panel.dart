@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:mechanix_calculator/core/utils/constant.dart';
-import 'package:mechanix_calculator/features/calculator/data/utils/result_formatter.dart';
+import 'package:mechanix_calculator/features/calculator/domain/input/superscript.dart';
 import 'package:mechanix_calculator/l10n/app_localizations.dart';
 import 'package:widgets/widgets.dart';
 
@@ -316,7 +316,7 @@ class ExponentText extends StatelessWidget {
     this.overflow,
   });
 
-  static final _exponentRun = RegExp('[${ResultFormatter.superscriptChars}]+');
+  static final _exponentRun = RegExp('[${Superscript.chars}]+');
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +345,7 @@ class ExponentText extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.only(left: fontSize * 0.04),
             child: Text(
-              ResultFormatter.fromSuperscript(match[0]!),
+              Superscript.toPlain(match[0]!),
               // Unique per exponent: text can hold several ("…×10¹⁷+…×10³").
               key: ValueKey('exponent_${index++}'),
               maxLines: 1,
